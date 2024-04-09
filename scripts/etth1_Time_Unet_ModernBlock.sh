@@ -1,4 +1,4 @@
-model_name=Time_Unet_tAPE
+model_name=Time_Unet_ModernBlock
 #export CUDA_VISIBLE_DEVICES=3
 for pred_len in 96 192 336 720
 do

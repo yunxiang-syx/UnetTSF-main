@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="songyunxiang@183.175.14.140:22 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="songyunxiang@183.175.12.113:22 password">
         <serverdata>
@@ -41,9 +41,18 @@
         <serverdata>
           <mappings>
             <mapping deploy="/sda/home/songyunxiang/UnetTSF-main" local="$PROJECT_DIR$" web="/" />
+            <mapping local="" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="songyunxiang@183.175.14.140:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/sda/home/songyunxiang/UnetTSF-main" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

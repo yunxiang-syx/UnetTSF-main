@@ -1,7 +1,7 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from layers.tAPE import tAPE
-from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,Time_Unet_tAPE
+from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,Time_Unet_FITS,ModernTCN_Unet,Time_Unet_ModernBlock
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -13,6 +13,7 @@ from torch.optim import lr_scheduler
 
 import os
 import time
+import datetime
 
 import warnings
 import matplotlib.pyplot as plt
@@ -36,9 +37,15 @@ class Exp_Main(Exp_Basic):
             'Linear': Linear,
             'PatchTST': PatchTST,
             'Time_Unet':Time_Unet,
-            'Time_Unet_tAPE': Time_Unet_tAPE
+            'Time_Unet_FITS': Time_Unet_FITS,
+            'ModernTCN_Unet': ModernTCN_Unet,
+            'Time_Unet_ModernBlock': Time_Unet_ModernBlock
         }
-        model = model_dict[self.args.model].Model(self.args).float()
+        #初始化模型
+        if self.args.model == 'ModernTCN_Unet':
+            model = model_dict[self.args.model].Model(self.args.enc_in, self.args.seq_len, self.args.pred_len).float()
+        else:
+            model = model_dict[self.args.model].Model(self.args).float()
 
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -170,7 +177,7 @@ class Exp_Main(Exp_Basic):
                         train_loss.append(loss.item())
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
-                            outputs = self.model(batch_x) #outputs: (256,336,7),一堆小数点
+                            outputs = self.model(batch_x) # bach_x:(256,432,7)   outputs: (256,336,7),一堆小数点
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -243,7 +250,7 @@ class Exp_Main(Exp_Basic):
             os.makedirs(folder_path)
 
         self.model.eval()
-        test_flag = False
+        test_flag = True
         tets_num = 0
         test_time = 0
         with torch.no_grad():
@@ -336,26 +343,28 @@ class Exp_Main(Exp_Basic):
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
         print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
 
-        # 检查result.txt文件是否存在，如果不存在则创建
-        result_file_path = os.path.join(folder_path, "result.txt")
-        if not os.path.exists(result_file_path):
-            with open(result_file_path, 'w'):  # 使用 'w' 模式创建新文件
-                pass
+        # 获取当前时间
+        current_time = datetime.datetime.now()
+        # 格式化时间字符串
+        time_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
 
-        with open(result_file_path, 'a') as f:
-            f.write(setting + "  \n")
-            f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
-            f.write('\n')
-            f.write('\n')
-        # f = open("result.txt", 'a')
-        # f.write(setting + "  \n")
-        # f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
-        # f.write('\n')
-        # f.write('\n')
-        # f.close()
+        f = open("result.txt", 'a')
+        f.write('Time: {}\n'.format(time_str))  # 写入当前时间
+        f.write(setting + "  \n")
+        f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
+        f.write('\n')
+        f.write('\n')
+        f.close()
+
+        # with open(result_file_path, 'a') as f:
+        #     f.write('Time: {}\n'.format(time_str)) #写入当前时间
+        #     f.write(setting + "  \n")
+        #     f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
+        #     f.write('\n')
+        #     f.write('\n')
 
         # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe,rse, corr]))
-        np.save(folder_path + 'pred.npy', preds)
+        # np.save(folder_path + 'pred.npy', preds)
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
         return
