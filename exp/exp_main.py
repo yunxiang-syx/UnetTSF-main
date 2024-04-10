@@ -1,7 +1,7 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from layers.tAPE import tAPE
-from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,Time_Unet_FITS,ModernTCN_Unet,Time_Unet_ModernBlock
+from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,Time_Unet_FITS,TimesNet,ModernTCN_Unet,Time_Unet_ModernBlock
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -39,7 +39,8 @@ class Exp_Main(Exp_Basic):
             'Time_Unet':Time_Unet,
             'Time_Unet_FITS': Time_Unet_FITS,
             'ModernTCN_Unet': ModernTCN_Unet,
-            'Time_Unet_ModernBlock': Time_Unet_ModernBlock
+            'Time_Unet_ModernBlock': Time_Unet_ModernBlock,
+            'TimesNet': TimesNet
         }
         #初始化模型
         if self.args.model == 'ModernTCN_Unet':
@@ -183,11 +184,12 @@ class Exp_Main(Exp_Basic):
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                             
                         else:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark, batch_y)
+                            # batch_x(32,432,7) batch_x_mark(32,432,4) dec_inp(32,384,7) batch_y_mark(32,384,4) batch_y(32,384,7)
+                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark, batch_y) #(32,336,7)
                     # print(outputs.shape,batch_y.shape)
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)
-                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)
+                    outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)  (32,336,7)
+                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)  (32,336,7)
                     loss = criterion(outputs, batch_y)
                     train_loss.append(loss.item())
 

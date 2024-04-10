@@ -29,10 +29,10 @@ def find_optimal_alignment_path(y, s_prime):
             m[t][i - 1] = \
                 y[t][i - 1] * \
                 max(m[t - 1][j - 1] for j in G[i])
-    print("我是G",G)
+    #print("我是G",G)
     # Backtracking
     i = np.argmax(m[T - 1, [len(s_prime) - 2, len(s_prime) - 1]]) #因为G是1开头的
-    print("我是m:",m)
+   # print("我是m:",m)
     alignment_path = [i]
     i = i + 1
 

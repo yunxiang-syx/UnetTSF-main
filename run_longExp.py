@@ -13,6 +13,9 @@ if __name__ == '__main__':
     parser.add_argument('--random_seed', type=int, default=2021, help='random seed')
 
     # basic config
+    parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
+                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]')
+    parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
     parser.add_argument('--is_training', type=int, required=False, default=1, help='status')
     parser.add_argument('--model_id', type=str, required=False, default='test', help='model id')
     parser.add_argument('--model', type=str, required=False, default='Transformer',
@@ -55,6 +58,9 @@ if __name__ == '__main__':
     parser.add_argument('--decomposition', type=int, default=0, help='decomposition; True 1 False 0')
     parser.add_argument('--kernel_size', type=int, default=25, help='decomposition-kernel')
     parser.add_argument('--individual', type=int, default=1, help='individual head; True 1 False 0')
+
+    # model define
+    parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
 
     # Formers 
     parser.add_argument('--embed_type', type=int, default=0, help='0: default 1: value embedding + temporal embedding + positional embedding 2: value embedding + temporal embedding 3: value embedding + positional embedding 4: value embedding')

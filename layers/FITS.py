@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 # 论文：FITS：MODELING TIME SERIES WITH 10K PARAME-TERS(ICLR2024)
-
+# 讲解：https://zhuanlan.zhihu.com/p/669221150
 '''
 FITS模块用于时间序列预测，它通过频率插值的方法来进行预测。模型的设计思路不仅仅局限于时域分析，还涉及到频域的处理，这是一个较为先进和不常见的处理方式。
 
@@ -47,7 +47,7 @@ class FITS(nn.Module):
 
         # 执行FFT变换
         low_specx = torch.fft.rfft(x_normalized, dim=1)
-        low_specx[:, self.dominance_freq:, :] = 0 # 应用LPF
+        low_specx[:, self.dominance_freq:, :] = 0 # 应用LPF低通滤波
 
         # 拆分实部和虚部
         real_part = low_specx.real

@@ -117,7 +117,6 @@ class Model(nn.Module):
 
     def forward(self, x):
         # x:(256,432,7),即[B, L, M]
-        x = self.fits(x)
         x = x.permute(0, 2, 1) # x: [B, M, L]
         x_emb = self.embed_layer(x)  # [B, M, L] -> [B, M, D, N]
 
