@@ -5,8 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from CFPnet import darknet
-from CFPnet import evc_blocks
+from FPN import darknet, evc_blocks
 
 
 class YOLOFPN(nn.Module):

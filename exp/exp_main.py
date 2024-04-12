@@ -1,7 +1,8 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from layers.tAPE import tAPE
-from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,Time_Unet_FITS,TimesNet,ModernTCN_Unet,Time_Unet_ModernBlock
+from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,\
+    Time_Unet_FITS,TimesNet,ModernTCN_Unet,Time_Unet_ModernBlock, Time_Unet_FPN
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -40,7 +41,8 @@ class Exp_Main(Exp_Basic):
             'Time_Unet_FITS': Time_Unet_FITS,
             'ModernTCN_Unet': ModernTCN_Unet,
             'Time_Unet_ModernBlock': Time_Unet_ModernBlock,
-            'TimesNet': TimesNet
+            'TimesNet': TimesNet,
+            'Time_Unet_FPN': Time_Unet_FPN
         }
         #初始化模型
         if self.args.model == 'ModernTCN_Unet':
