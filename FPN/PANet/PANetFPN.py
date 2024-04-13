@@ -131,8 +131,6 @@ class PANetFPN(nn.Module):
             e_last = self.add_blocks[i](e_last) #(266, 7, 167)
            # e_last = self.down_blocks[i](e_last)
             e_last = e_last + e_middle[self.stage_num - i - 2] ##(266, 7, 167)
-           # e_last = torch.cat((e_left[self.stage_num - i - 2], e_last), dim=2)
-
             e_right.append(e_last)
         #e_right{(256, 7, 336), (256, 7 ,167), (256, 7, 83)}
 

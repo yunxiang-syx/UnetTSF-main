@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 from torch.optim import lr_scheduler 
+from data_provider.data_aug import noise_injection, amplitude_perturbation, clip_and_scale
 
 import os
 import time
@@ -181,6 +182,7 @@ class Exp_Main(Exp_Basic):
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
                             outputs = self.model(batch_x) # bach_x:(256,432,7)   outputs: (256,336,7),一堆小数点
+                            outputs_aug = self.model(noise_injection(amplitude_perturbation(batch_x))) #数据增强
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -193,6 +195,10 @@ class Exp_Main(Exp_Basic):
                     outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)  (32,336,7)
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)  (32,336,7)
                     loss = criterion(outputs, batch_y)
+                    if outputs_aug.numel() != 0:
+                        outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
+                        loss_aug = criterion(outputs_aug, batch_y)
+                        loss = loss * 0.5 + loss_aug * 0.5
                     train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
