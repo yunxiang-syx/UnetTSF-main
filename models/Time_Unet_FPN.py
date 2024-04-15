@@ -8,7 +8,7 @@ from layers.RevIN import RevIN
 class Model(nn.Module):
     def __init__(self, configs):
         super(Model, self).__init__()
-     #   self.fpn_pyramid = FPNPyramid(configs.enc_in, configs.pred_len)
+        # self.fpn_pyramid = FPNPyramid(configs.enc_in, configs.pred_len)
         self.fpn_pyramid = PANetFPN(configs)
         self.revin_layer = RevIN(configs.enc_in, affine=True, subtract_last=False)
 

@@ -2,7 +2,7 @@ model_name=Time_Unet
 #export CUDA_VISIBLE_DEVICES=3
 for pred_len in 96 192 336 720
 do
-seq_len=96
+seq_len=336
 
 python -u ../run_longExp.py \
     --is_training 1 \
