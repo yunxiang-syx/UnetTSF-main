@@ -59,6 +59,10 @@ if __name__ == '__main__':
     parser.add_argument('--kernel_size', type=int, default=25, help='decomposition-kernel')
     parser.add_argument('--individual', type=int, default=1, help='individual head; True 1 False 0')
 
+    # PITS
+    parser.add_argument('--shared_embedding', type=int, default=1, help='stride')
+    parser.add_argument('--c_in', type=int, default=7, help='channels')
+
     # model define
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
 
@@ -104,7 +108,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-    parser.add_argument('--devices', type=str, default='0,1,2,3,4,5,6,7', help='device ids of multile gpus')
+    parser.add_argument('--devices', type=str, default='0', help='device ids of multile gpus')
     parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
     parser.add_argument(
         '--local_rank',

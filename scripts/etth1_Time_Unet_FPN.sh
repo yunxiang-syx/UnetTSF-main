@@ -1,5 +1,5 @@
 model_name=Time_Unet_FPN
-#export CUDA_VISIBLE_DEVICES=3
+#export CUDA_VISIBLE_DEVICES=0,1,2,3
 for pred_len in 96 192 336 720
 do
 seq_len=336

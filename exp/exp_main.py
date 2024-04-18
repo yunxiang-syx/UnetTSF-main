@@ -2,7 +2,7 @@ from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from layers.tAPE import tAPE
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,\
-    Time_Unet_FITS,TimesNet,ModernTCN_Unet,Time_Unet_ModernBlock, Time_Unet_FPN
+    Time_Unet_FITS,TimesNet,ModernTCN_Unet,Time_Unet_ModernBlock, Time_Unet_FPN,Time_Unet_PITS
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -43,7 +43,8 @@ class Exp_Main(Exp_Basic):
             'ModernTCN_Unet': ModernTCN_Unet,
             'Time_Unet_ModernBlock': Time_Unet_ModernBlock,
             'TimesNet': TimesNet,
-            'Time_Unet_FPN': Time_Unet_FPN
+            'Time_Unet_FPN': Time_Unet_FPN,
+            'Time_Unet_PITS': Time_Unet_PITS
         }
         #初始化模型
         if self.args.model == 'ModernTCN_Unet':
@@ -195,10 +196,10 @@ class Exp_Main(Exp_Basic):
                     outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)  (32,336,7)
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)  (32,336,7)
                     loss = criterion(outputs, batch_y)
-                    if outputs_aug.numel() != 0:
-                        outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
-                        loss_aug = criterion(outputs_aug, batch_y)
-                        loss = loss * 0.5 + loss_aug * 0.5
+                    # if outputs_aug.numel() != 0:
+                    #     outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
+                    #     loss_aug = criterion(outputs_aug, batch_y)
+                    #     loss = loss * 0.5 + loss_aug * 0.5
                     train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
