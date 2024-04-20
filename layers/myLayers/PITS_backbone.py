@@ -53,10 +53,10 @@ class PITS_backbone(nn.Module):
         
     
     def forward(self, z): #(266, 7, 432)
-        if self.revin: 
-            z = z.permute(0,2,1) #(256, 432, 7)
-            z = self.revin_layer(z, 'norm') #(256, 432, 7)
-            z = z.permute(0,2,1) #(256, 7, 432)
+        # if self.revin:
+        #     z = z.permute(0,2,1) #(256, 432, 7)
+        #     z = self.revin_layer(z, 'norm') #(256, 432, 7)
+        #     z = z.permute(0,2,1) #(256, 7, 432)
             
         # do patching
         if self.padding_patch == 'end':
@@ -68,11 +68,11 @@ class PITS_backbone(nn.Module):
         z = self.backbone(z) #(256, 7, 128, 36)
         z = self.head(z)  #(256, 7, 336)
         
-        # denorm
-        if self.revin: 
-            z = z.permute(0,2,1)
-            z = self.revin_layer(z, 'denorm')
-            z = z.permute(0,2,1)
+        # # denorm
+        # if self.revin:
+        #     z = z.permute(0,2,1)
+        #     z = self.revin_layer(z, 'denorm')
+        #     z = z.permute(0,2,1)
         return z # #(256, 7, 336)
     
 

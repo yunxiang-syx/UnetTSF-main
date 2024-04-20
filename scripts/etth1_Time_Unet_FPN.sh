@@ -19,5 +19,18 @@ python -u ../run_longExp.py \
     --stage_num 3 \
     --stage_pool_kernel 3 \
     --stage_pool_padding 0 \
+    --c_in 7 \
+    --patch_len 24 \
+    --stride 12 \
+    --train_epochs 100 \
+    --individual 1 \
+    --shared_embedding 0 \
+    --d_model 128 \
+    --head_dropout 0.3 \
+    --padding_patch 'end' \
+    --revin 1 \
+    --affine 1 \
+    --subtract_last 0 \
+    --kernel_size 25 \
     --itr 1 --batch_size 256 --learning_rate 0.01
 done

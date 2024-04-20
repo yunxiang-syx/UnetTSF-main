@@ -19,5 +19,5 @@ python -u ../run_longExp.py \
     --stage_num 3 \
     --stage_pool_kernel 3 \
     --stage_pool_padding 0 \
-    --itr 1 --batch_size 256 --learning_rate 0.01
+    --itr 1 --batch_size 512 --learning_rate 0.01
 done
