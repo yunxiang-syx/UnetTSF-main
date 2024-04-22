@@ -183,7 +183,7 @@ class Exp_Main(Exp_Basic):
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
                             outputs = self.model(batch_x) # bach_x:(256,432,7)   outputs: (256,336,7),一堆小数点
-                            outputs_aug = self.model(noise_injection(amplitude_perturbation(batch_x))) #数据增强
+                          #  outputs_aug = self.model(noise_injection(amplitude_perturbation(batch_x))) #数据增强
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -254,6 +254,9 @@ class Exp_Main(Exp_Basic):
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
         preds = []
+        preds_noise_injections = []
+        preds_amplitude_perturbation = []
+        preds_clip_and_scale = []
         trues = []
         inputx = []
         folder_path = './test_results/' + setting + '/'
@@ -290,6 +293,9 @@ class Exp_Main(Exp_Basic):
                     start = time.time()
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
                             outputs = self.model(batch_x)
+                            outputs_noise_injection = self.model(noise_injection(batch_x))  # 随机噪声
+                            outputs_amplitude_perturbation = self.model(amplitude_perturbation(batch_x))  # 随机的增减
+                            outputs_clip_and_scale = self.model(clip_and_scale(batch_x))  # 随机裁剪
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -325,7 +331,13 @@ class Exp_Main(Exp_Basic):
 
                 pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
                 true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
-
+                #TTA
+                pred_outputs_noise_injection = outputs_noise_injection[:, -self.args.pred_len:, f_dim:]
+                pred_amplitude_perturbation = outputs_amplitude_perturbation[:, -self.args.pred_len:, f_dim:]
+                pred_clip_and_scale = outputs_clip_and_scale[:, -self.args.pred_len:, f_dim:]
+                preds_noise_injections.append(pred_outputs_noise_injection.detach().cpu().numpy())
+                preds_amplitude_perturbation.append(pred_amplitude_perturbation.detach().cpu().numpy())
+                preds_clip_and_scale.append(pred_clip_and_scale.detach().cpu().numpy())
                 preds.append(pred)
                 trues.append(true)
                 inputx.append(batch_x.detach().cpu().numpy())
@@ -338,11 +350,18 @@ class Exp_Main(Exp_Basic):
         if self.args.test_flop:
             test_params_flop((batch_x.shape[1],batch_x.shape[2]))
             exit()
+        #下边都是四维：(10,256,192,7)
         preds = np.array(preds)
+        preds_noise_injections = np.array(preds_noise_injections)
+        preds_amplitude_perturbation = np.array(preds_amplitude_perturbation)
+        preds_clip_and_scale = np.array(preds_clip_and_scale)
         trues = np.array(trues)
         inputx = np.array(inputx)
-
+        #变三维；(2560,192,7)
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
+        preds_noise_injections = preds_noise_injections.reshape(-1, preds.shape[-2], preds.shape[-1])
+        preds_amplitude_perturbation = preds_amplitude_perturbation.reshape(-1, preds.shape[-2], preds.shape[-1])
+        preds_clip_and_scale = preds_clip_and_scale.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
 
@@ -352,7 +371,13 @@ class Exp_Main(Exp_Basic):
             os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
+        mae_noise_injections, mse_noise_injections, rse_noise_injections, mape, mspe, rse, corr = metric(preds_noise_injections, trues)
+        mae_amplitude_perturbation, mse_amplitude_perturbation, rse_amplitude_perturbation, mape, mspe, rse, corr = metric(preds_amplitude_perturbation, trues)
+        mae_clip_and_scale, mse_clip_and_scale, rse_clip_and_scale, mape, mspe, rse, corr = metric(preds_clip_and_scale, trues)
+        mse_final = (mse + mse_noise_injections + mse_clip_and_scale + mse_amplitude_perturbation) / 4.0
+        mae_final = (mae + mae_noise_injections + mae_clip_and_scale + mae_amplitude_perturbation) / 4.0
+        rse_final = (rse_noise_injections + rse_amplitude_perturbation + rse_clip_and_scale + rse) / 4.0
+        print('mse:{}, mae:{}, rse:{}'.format(mse_final,  mae_final, rse_final))
 
         # 获取当前时间
         current_time = datetime.datetime.now()
@@ -362,7 +387,7 @@ class Exp_Main(Exp_Basic):
         f = open("result.txt", 'a')
         f.write('Time: {}\n'.format(time_str))  # 写入当前时间
         f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
+        f.write('mse:{}, mae:{}, rse:{}'.format(mse_final, mae_final, rse_final))
         f.write('\n')
         f.write('\n')
         f.close()
