@@ -34,8 +34,8 @@ class Model(nn.Module):
         decomposition = configs.decomposition
         kernel_size = configs.kernel_size
         shared_embedding = configs.shared_embedding
-        self.fpn_pyramid = PANetFPN(configs)
-      #  self.fpn_pyramid = RecursiveFPN(configs)
+      #  self.fpn_pyramid = PANetFPN(configs)
+        self.fpn_pyramid = RecursiveFPN(configs)
         self.revin_layer = RevIN(configs.enc_in, affine=True, subtract_last=False)
         self.decomp_module = series_decomp(kernel_size = 25)
         self.model_trend = PITS_backbone(c_in=c_in,
@@ -63,11 +63,11 @@ class Model(nn.Module):
         # res_fpn = self.fpn_pyramid(res_init)
         # trend_fpn = self.fpn_pyramid(trend_init)
         # e_last = res_fpn + trend_fpn
-        x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
+     #   x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
    #     output = self.fpn_pyramid(x)  # (256,336,7)
    #     output = self.fpn_pyramid(x)
         #    x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
-        output = self.fpn_pyramid(x1) # (256,336,7)
+        output = self.fpn_pyramid(x) # (256,336,7)
      #   output = self.fpn_pyramid(res) + self.fpn_pyramid(trend)
         e_last = self.revin_layer(output, 'denorm')  # (256,432,7)
         return e_last

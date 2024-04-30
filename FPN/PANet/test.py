@@ -1,41 +1,54 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import copy
+class CustomTransformerEncoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+        super(CustomTransformerEncoderLayer, self).__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
+    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+        src2 = self.self_attn(src, src, src, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+        src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+        return src
 
-class CustomFPN(nn.Module):
-    def __init__(self, in_channels, out_channels): # 7    336
-        super(CustomFPN, self).__init__()
-        self.downsample = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
-        self.conv = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.prev_conv = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
-   #卷积的in_channels看的是(A,B,C)里的B
-    def forward(self, x, prev_feature):
-        # x:(512, 7, 432)   prev_feature:(512, 7, 216)
-        downsampled_feature = self.downsample(x) #(512, 336, 216) (B, Out_channels, 216)
+class CustomTransformerEncoder(nn.Module):
+    def __init__(self, encoder_layer, num_layers):
+        super(CustomTransformerEncoder, self).__init__()
+        self.layers = nn.ModuleList([copy.deepcopy(encoder_layer) for _ in range(num_layers)])
+        self.norm = nn.LayerNorm(encoder_layer.d_model)
 
-        prev_feature = self.prev_conv(prev_feature) # (512, 336, 216)
+    def forward(self, src, mask=None, src_key_padding_mask=None):
+        output = src
+        for mod in self.layers:
+            output = mod(output, src_mask=mask, src_key_padding_mask=src_key_padding_mask)
+        return self.norm(output)
 
-        # Element-wise addition
-        combined_feature = downsampled_feature + prev_feature # (512, 336, 216)
+# 参数设置
+d_model = 64
+nhead = 8
+num_layers = 3
+dim_feedforward = 256
 
-        # Apply convolution
-        output_feature = self.conv(combined_feature).transpose(1, 2) #torch.Size([512, 216, 336]) (B,Middle,out_channels)
+# 实例化模型
+custom_encoder_layer = CustomTransformerEncoderLayer(d_model, nhead, dim_feedforward)
+custom_transformer_encoder = CustomTransformerEncoder(custom_encoder_layer, num_layers)
 
-        return output_feature
+# 输入数据
+B, C, T = 4, 3, 10
+input_data = torch.randn(B, C, T)
 
-
-# Example usage
-B, T, C = 512, 432, 7  # Batch size, sequence length, number of channels
-in_channels = C  # Number of input channels
-out_channels = 336  # Number of output channels
-Ni = torch.randn(B, C, T)  # Input feature sequence Ni
-Pi_1 = torch.randn(B, C, T // 2)  # Previous feature sequence Pi+1
-
-# Create CustomFPN module
-custom_fpn = CustomFPN(in_channels, out_channels)
-
-# Forward pass
-output_feature = custom_fpn(Ni, Pi_1)
-
-# Check the output shape
-print(output_feature.shape)  # Output shape should be torch.Size([512, 216, 336])
+# 前向传播
+output = custom_transformer_encoder(input_data)
+print(output.shape)  # 输出形状：torch.Size([4, 3, 10])

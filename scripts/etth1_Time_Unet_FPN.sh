@@ -32,5 +32,7 @@ python -u ../run_longExp.py \
     --affine 1 \
     --subtract_last 0 \
     --kernel_size 25 \
+    --equalizer 'transformer' \
+    --prior 'mag' \
     --itr 1 --batch_size 256 --learning_rate 0.01
 done

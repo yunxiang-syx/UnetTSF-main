@@ -1,6 +1,8 @@
 import argparse
 import os
 import torch
+
+from data_provider.equalizer import Equalizer
 from exp.exp_main import Exp_Main
 import random
 import numpy as np
@@ -103,6 +105,10 @@ if __name__ == '__main__':
     parser.add_argument('--lradj', type=str, default='type3', help='adjust learning rate')
     parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
+
+    #引入SimPIS
+    parser.add_argument('--equalizer', type=str, default='transformer')
+    parser.add_argument('--prior', type=str, default='self')
 
     # GPU
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')

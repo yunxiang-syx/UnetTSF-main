@@ -1,4 +1,6 @@
+from data_provider.augmentations import AugBoostDeep
 from data_provider.data_factory import data_provider
+from data_provider.equalizer import Equalizer
 from exp.exp_basic import Exp_Basic
 from layers.tAPE import tAPE
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet,\
@@ -26,8 +28,16 @@ from thop import profile as thopprofile
 warnings.filterwarnings('ignore')
 
 class Exp_Main(Exp_Basic):
+
     def __init__(self, args):
         super(Exp_Main, self).__init__(args)
+        # 引入SimPSI
+        self.eq = Equalizer(args).to(self.device)
+
+        #引入SimPSI
+        self.equalizer_optimizer = torch.optim.Adam(self.eq.parameters(), lr=3e-4,
+                                               betas=(0.9, 0.99), weight_decay=3e-4)
+        self.augboost = AugBoostDeep(aug_list=[], prior=args.prior)
 
     def _build_model(self):
         model_dict = {
@@ -148,16 +158,18 @@ class Exp_Main(Exp_Basic):
             train_loss = []
             #将模型设置为训练模式，启用BatchNormalization和Dropout等训练相关的层
             self.model.train()
+            self.eq.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
 
                 iter_count += 1
-                model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device) # bach_x:(256,432,7)
                 batch_y = batch_y.float().to(self.device) # batch_y:(256,384,7)
                 batch_x_mark = batch_x_mark.float().to(self.device) # batch_x_mark:(256,432,4)
                 batch_y_mark = batch_y_mark.float().to(self.device) # batch_y_mark:(256,384,4)
 
+                model_optim.zero_grad()
+                self.equalizer_optimizer.zero_grad()
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float() #(256,336,7) 全零
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device) #(256,384,7)
@@ -182,8 +194,13 @@ class Exp_Main(Exp_Basic):
                         train_loss.append(loss.item())
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
-                            outputs = self.model(batch_x) # bach_x:(256,432,7)   outputs: (256,336,7),一堆小数点
+                         #   outputs = self.model(batch_x) # bach_x:(256,432,7)   outputs: (256,336,7),一堆小数点
                           #  outputs_aug = self.model(noise_injection(amplitude_perturbation(batch_x))) #数据增强
+                            #引入SimPSI数据增强
+
+                            data_psi, _, _, _ = self.augboost(batch_x, self.eq, batch_y, self.model)
+                            outputs = self.model(data_psi)
+
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -196,7 +213,7 @@ class Exp_Main(Exp_Basic):
                     outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)  (32,336,7)
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)  (32,336,7)
                     loss = criterion(outputs, batch_y)
-                    # if outputs_aug.numel() != 0:
+                    # if outpus_psi.numel() != Null:
                     #     outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
                     #     loss_aug = criterion(outputs_aug, batch_y)
                     #     loss = loss * 0.5 + loss_aug * 0.5
@@ -218,7 +235,7 @@ class Exp_Main(Exp_Basic):
                     loss.backward()
                     #优化器会根据当前设置的学习率和梯度计算出的参数更新值来更新模型的参数
                     model_optim.step()
-                    
+                    self.equalizer_optimizer.step()
                 if self.args.lradj == 'TST':
                     adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args, printout=False)
                     scheduler.step()
@@ -248,15 +265,12 @@ class Exp_Main(Exp_Basic):
 
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
-        
+
         if test:
             print('loading model')
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
         preds = []
-        preds_noise_injections = []
-        preds_amplitude_perturbation = []
-        preds_clip_and_scale = []
         trues = []
         inputx = []
         folder_path = './test_results/' + setting + '/'
@@ -292,35 +306,32 @@ class Exp_Main(Exp_Basic):
                     torch.cuda.synchronize()
                     start = time.time()
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
-                            outputs = self.model(batch_x)
-                            outputs_noise_injection = self.model(noise_injection(batch_x))  # 随机噪声
-                            outputs_amplitude_perturbation = self.model(amplitude_perturbation(batch_x))  # 随机的增减
-                            outputs_clip_and_scale = self.model(clip_and_scale(batch_x))  # 随机裁剪
+                        outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                        
+
                     torch.cuda.synchronize()
                     end = time.time()
                     test_time = test_time + end - start
                     tets_num = tets_num + 1
 
-                #测试阶段统计模型的 FLOPs（浮点运算数）和参数数量，以及当前 GPU 占用的内存量，
+                # 测试阶段统计模型的 FLOPs（浮点运算数）和参数数量，以及当前 GPU 占用的内存量，
                 if test_flag:
                     if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
-                        #使用 thopprofile 函数计算模型的 FLOPs 和参数数量
-                        flops, params = thopprofile(self.model, inputs=(batch_x, ))
-                        print("FLOPs=", str(flops/1e6) +'{}'.format("M"))
-                        print("params=", str(params/1e6)+'{}'.format("M"))
-                        print(f'memary = {torch.cuda.memory_allocated()/1024/1024}')
-                        test_flag = False # test_flag 设置为 False，确保这部分代码只在测试阶段执行一次。
+                        # 使用 thopprofile 函数计算模型的 FLOPs 和参数数量
+                        flops, params = thopprofile(self.model, inputs=(batch_x,))
+                        print("FLOPs=", str(flops / 1e6) + '{}'.format("M"))
+                        print("params=", str(params / 1e6) + '{}'.format("M"))
+                        print(f'memary = {torch.cuda.memory_allocated() / 1024 / 1024}')
+                        test_flag = False  # test_flag 设置为 False，确保这部分代码只在测试阶段执行一次。
                     else:
-                        flops, params = thopprofile(self.model, inputs=(batch_x, batch_x_mark, dec_inp, batch_y_mark, ))
-                        print("FLOPs=", str(flops/1e6) +'{}'.format("M"))
-                        print("params=", str(params/1e6)+'{}'.format("M"))
-                        print(f'memary = {torch.cuda.memory_allocated()/1024/1024}')
+                        flops, params = thopprofile(self.model, inputs=(batch_x, batch_x_mark, dec_inp, batch_y_mark,))
+                        print("FLOPs=", str(flops / 1e6) + '{}'.format("M"))
+                        print("params=", str(params / 1e6) + '{}'.format("M"))
+                        print(f'memary = {torch.cuda.memory_allocated() / 1024 / 1024}')
                         test_flag = False
                 f_dim = -1 if self.args.features == 'MS' else 0
                 # print(outputs.shape,batch_y.shape)
@@ -331,13 +342,7 @@ class Exp_Main(Exp_Basic):
 
                 pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
                 true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
-                #TTA
-                pred_outputs_noise_injection = outputs_noise_injection[:, -self.args.pred_len:, f_dim:]
-                pred_amplitude_perturbation = outputs_amplitude_perturbation[:, -self.args.pred_len:, f_dim:]
-                pred_clip_and_scale = outputs_clip_and_scale[:, -self.args.pred_len:, f_dim:]
-                preds_noise_injections.append(pred_outputs_noise_injection.detach().cpu().numpy())
-                preds_amplitude_perturbation.append(pred_amplitude_perturbation.detach().cpu().numpy())
-                preds_clip_and_scale.append(pred_clip_and_scale.detach().cpu().numpy())
+
                 preds.append(pred)
                 trues.append(true)
                 inputx.append(batch_x.detach().cpu().numpy())
@@ -346,22 +351,15 @@ class Exp_Main(Exp_Basic):
                     gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
-        print(f"avg_time = {test_time/tets_num}")
+        print(f"avg_time = {test_time / tets_num}")
         if self.args.test_flop:
-            test_params_flop((batch_x.shape[1],batch_x.shape[2]))
+            test_params_flop((batch_x.shape[1], batch_x.shape[2]))
             exit()
-        #下边都是四维：(10,256,192,7)
         preds = np.array(preds)
-        preds_noise_injections = np.array(preds_noise_injections)
-        preds_amplitude_perturbation = np.array(preds_amplitude_perturbation)
-        preds_clip_and_scale = np.array(preds_clip_and_scale)
         trues = np.array(trues)
         inputx = np.array(inputx)
-        #变三维；(2560,192,7)
+
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        preds_noise_injections = preds_noise_injections.reshape(-1, preds.shape[-2], preds.shape[-1])
-        preds_amplitude_perturbation = preds_amplitude_perturbation.reshape(-1, preds.shape[-2], preds.shape[-1])
-        preds_clip_and_scale = preds_clip_and_scale.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
 
@@ -371,13 +369,7 @@ class Exp_Main(Exp_Basic):
             os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        mae_noise_injections, mse_noise_injections, rse_noise_injections, mape, mspe, rse, corr = metric(preds_noise_injections, trues)
-        mae_amplitude_perturbation, mse_amplitude_perturbation, rse_amplitude_perturbation, mape, mspe, rse, corr = metric(preds_amplitude_perturbation, trues)
-        mae_clip_and_scale, mse_clip_and_scale, rse_clip_and_scale, mape, mspe, rse, corr = metric(preds_clip_and_scale, trues)
-        mse_final = (mse + mse_noise_injections + mse_clip_and_scale + mse_amplitude_perturbation) / 4.0
-        mae_final = (mae + mae_noise_injections + mae_clip_and_scale + mae_amplitude_perturbation) / 4.0
-        rse_final = (rse_noise_injections + rse_amplitude_perturbation + rse_clip_and_scale + rse) / 4.0
-        print('mse:{}, mae:{}, rse:{}'.format(mse_final,  mae_final, rse_final))
+        print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
 
         # 获取当前时间
         current_time = datetime.datetime.now()
@@ -387,7 +379,7 @@ class Exp_Main(Exp_Basic):
         f = open("result.txt", 'a')
         f.write('Time: {}\n'.format(time_str))  # 写入当前时间
         f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}, rse:{}'.format(mse_final, mae_final, rse_final))
+        f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         f.write('\n')
         f.write('\n')
         f.close()
