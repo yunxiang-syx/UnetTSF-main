@@ -29,6 +29,8 @@ python -u ../run_longExp.py \
     --head_dropout 0.3 \
     --padding_patch 'end' \
     --revin 1 \
+    --bifpn_features 64 \
+    --bifpn_numlayers 3 \
     --affine 1 \
     --subtract_last 0 \
     --kernel_size 25 \

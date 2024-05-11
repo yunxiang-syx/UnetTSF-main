@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from FPN.BiFPN import BiFPN
 from FPN.PANet.PANetFPN import PANetFPN
 from FPN.PANet.formal_FPN import FPNPyramid
 from layers.RevIN import RevIN
@@ -16,7 +17,7 @@ class Model(nn.Module):
         # load parameters
         context_window = configs.seq_len
         target_window = configs.pred_len
-
+        self.pred_len = configs.pred_len
         d_model = configs.d_model
         head_dropout = configs.head_dropout
 
@@ -34,8 +35,9 @@ class Model(nn.Module):
         decomposition = configs.decomposition
         kernel_size = configs.kernel_size
         shared_embedding = configs.shared_embedding
-      #  self.fpn_pyramid = PANetFPN(configs)
-        self.fpn_pyramid = RecursiveFPN(configs)
+        self.fpn_pyramid = PANetFPN(configs)
+      #  self.fpn_pyramid = RecursiveFPN(configs)
+     #   self.bifpn_pyramid = BiFPN(configs.enc_in, feature_size=configs.bifpn_features, num_layers=configs.bifpn_numlayers)
         self.revin_layer = RevIN(configs.enc_in, affine=True, subtract_last=False)
         self.decomp_module = series_decomp(kernel_size = 25)
         self.model_trend = PITS_backbone(c_in=c_in,
@@ -65,9 +67,10 @@ class Model(nn.Module):
         # e_last = res_fpn + trend_fpn
      #   x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
    #     output = self.fpn_pyramid(x)  # (256,336,7)
-   #     output = self.fpn_pyramid(x)
-        #    x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
-        output = self.fpn_pyramid(x) # (256,336,7)
+        output = self.fpn_pyramid(x)
+   #      x = x.permute(0, 2, 1)  # x1 (256,7,432)
+   #      output = self.bifpn_pyramid(x, self.pred_len)
+   #      output = output.permute(0, 2, 1)
      #   output = self.fpn_pyramid(res) + self.fpn_pyramid(trend)
         e_last = self.revin_layer(output, 'denorm')  # (256,432,7)
         return e_last
@@ -99,6 +102,8 @@ class Configs:
         self.affine = True
         self.subtract_last = False
         self.kernel_size = 25
+        self.bifpn_features = 128
+        self.bifpn_numlayers = 3
 
 if __name__=='__main__':
     configs = Configs()

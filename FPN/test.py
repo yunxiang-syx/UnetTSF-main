@@ -61,4 +61,4 @@ num_residual_blocks = 4
 model = DilatedEncoder(input_channels, output_channels, num_residual_blocks)
 input_tensor = torch.randn(256, input_channels, 432)  # 输入大小为(batch_size, channels, sequence_length)
 output_tensor = model(input_tensor)
-print("Output tensor shape:", output_tensor.shape)
+print("Output tensor shape:", output_tensor.size()[2])

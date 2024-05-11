@@ -110,6 +110,10 @@ if __name__ == '__main__':
     parser.add_argument('--equalizer', type=str, default='transformer')
     parser.add_argument('--prior', type=str, default='self')
 
+    #引入BiFPN
+    parser.add_argument('--bifpn_features', type=int, default=128, help='bifpn_conv_outchannels')
+    parser.add_argument('--bifpn_numlayers', type=int, default=3, help='bifpn_block_layers')
+
     # GPU
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')

@@ -159,49 +159,49 @@ class Exp_Main(Exp_Basic):
                                             epochs = self.args.train_epochs,
                                             max_lr = self.args.learning_rate)
         # Define Losses
-        loss_D = nn.BCELoss()  # Binary Cross Entropy Loss for Generator
-        loss_CD = nn.BCELoss()  # Binary Cross Entropy Loss for Central Discriminator
-
-        # Initialize Generator, Discriminator, and Central Discriminator
-        noise_len = 432  # Length of noise vector
-        n_samples = 336  # Number of output samples
-        alpha = 0.1  # Leaky ReLU slope
-        n_channels = self.args.enc_in  # Number of channels
-        gamma_value = 5.0
-        generator = Generator(noise_len, n_samples, alpha)
-        discriminator = Discriminator(n_samples, alpha)
-        loss_function = nn.BCELoss()
-
-        discriminators = {}
-        for i in range(n_channels):
-            discriminators[i] = Discriminator(n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
-        for i in range(n_channels):
-            discriminators[i] = discriminators[i].to("cuda:0")
-            discriminators[i].to("cuda:0")
-            ##
-
-        generators = {}
-        for i in range(n_channels):
-            generators[i] = Generator(noise_len=noise_len, n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
-        for i in range(n_channels):
-            generators[i].to("cuda:0")
-
-        gamma = [gamma_value] * self.args.train_epochs
-
-        # Define Optimizers
-        optimizers_D = {}
-        for i in range(n_channels):
-            optimizers_D[i] = torch.optim.Adam(discriminators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
-        optimizers_G = {}
-        for i in range(n_channels):
-            optimizers_G[i] = torch.optim.Adam(generators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
-
-        #central discriminator
-        central_discriminator = Discriminator(n_samples=n_channels * n_samples, alpha=alpha)
-        central_discriminator = central_discriminator.apply(self.initialize_weights)
-        central_discriminator.to("cuda:0")
-        optimizer_central_discriminator = torch.optim.Adam(central_discriminator.parameters(),
-                                                           lr=0.0001, betas=[0.5, 0.9])
+        # loss_D = nn.BCELoss()  # Binary Cross Entropy Loss for Generator
+        # loss_CD = nn.BCELoss()  # Binary Cross Entropy Loss for Central Discriminator
+        #
+        # # Initialize Generator, Discriminator, and Central Discriminator
+        # noise_len = 432  # Length of noise vector
+        # n_samples = 336  # Number of output samples
+        # alpha = 0.1  # Leaky ReLU slope
+        # n_channels = self.args.enc_in  # Number of channels
+        # gamma_value = 5.0
+        # generator = Generator(noise_len, n_samples, alpha)
+        # discriminator = Discriminator(n_samples, alpha)
+        # loss_function = nn.BCELoss()
+        #
+        # discriminators = {}
+        # for i in range(n_channels):
+        #     discriminators[i] = Discriminator(n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
+        # for i in range(n_channels):
+        #     discriminators[i] = discriminators[i].to("cuda:0")
+        #     discriminators[i].to("cuda:0")
+        #     ##
+        #
+        # generators = {}
+        # for i in range(n_channels):
+        #     generators[i] = Generator(noise_len=noise_len, n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
+        # for i in range(n_channels):
+        #     generators[i].to("cuda:0")
+        #
+        # gamma = [gamma_value] * self.args.train_epochs
+        #
+        # # Define Optimizers
+        # optimizers_D = {}
+        # for i in range(n_channels):
+        #     optimizers_D[i] = torch.optim.Adam(discriminators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
+        # optimizers_G = {}
+        # for i in range(n_channels):
+        #     optimizers_G[i] = torch.optim.Adam(generators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
+        #
+        # #central discriminator
+        # central_discriminator = Discriminator(n_samples=n_channels * n_samples, alpha=alpha)
+        # central_discriminator = central_discriminator.apply(self.initialize_weights)
+        # central_discriminator.to("cuda:0")
+        # optimizer_central_discriminator = torch.optim.Adam(central_discriminator.parameters(),
+        #                                                    lr=0.0001, betas=[0.5, 0.9])
 
 
         for epoch in range(self.args.train_epochs):
@@ -225,100 +225,100 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float() #(256,336,7) 全零
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device) #(256,384,7)
 
-                signal_group = {}
-                for i in range(n_channels):
-                    signal_group[i] = batch_x[:, :, i]
-                # Generate noise
-                #noise = torch.randn(batch_x.shape[0], n_channels, noise_len)
-                shared_noise = torch.randn((batch_x.shape[0], noise_len)).float().to("cuda:0")
-
-                # Generate fake data
-               # generated_data = generator(noise).to("cuda:0")
-                generated_samples = {}
-                for i in range(n_channels):
-                    generated_samples[i] = generators[i](shared_noise).float()
-
-                generated_samples_labels = torch.zeros((batch_x.shape[0], n_samples)).to("cuda:0").float()
-                real_samples_labels = torch.ones((batch_x.shape[0], n_samples)).to("cuda:0").float()
-                all_samples_labels = torch.cat(
-                    (real_samples_labels, generated_samples_labels)
-                )
-
-                # Data for training the discriminators
-                all_samples_group = {}
-                for i in range(n_channels):
-                    all_samples_group[i] = torch.cat(
-                        (signal_group[i], generated_samples[i])
-                    )
-
-                # Training the discriminators
-                outputs_D = {}
-                loss_D = {}
-                for i in range(n_channels):
-                    optimizers_D[i].zero_grad()
-                    outputs_D[i] = discriminators[i](all_samples_group[i].float())
-                    loss_D[i] = loss_function(outputs_D[i], all_samples_labels)
-                    loss_D[i].backward(retain_graph=True)
-                    optimizers_D[i].step()
-
-                #CD
-                temp_generated = generated_samples[0]
-                for i in range(1, n_channels):
-                    temp_generated = torch.hstack((temp_generated, generated_samples[i]))
-                group_generated = temp_generated
-
-                temp_real = signal_group[0]
-                for i in range(1, n_channels):
-                    temp_real = torch.hstack((temp_real, signal_group[i]))
-                group_real = temp_real
-
-                all_samples_central = torch.cat((group_generated, group_real))
-                all_samples_labels_central = torch.cat(
-                    (torch.zeros((batch_x.shape[0], n_samples * n_channels)).to("cuda:0").float(), torch.ones((batch_x.shape[0], n_samples * n_channels)).to("cuda:0").float())
-                )
-
-                # Training the central discriminator
-                optimizer_central_discriminator.zero_grad()
-                output_central_discriminator = central_discriminator(all_samples_central.float())
-                loss_central_discriminator = loss_function(
-                    output_central_discriminator, all_samples_labels_central)
-                loss_central_discriminator = loss_central_discriminator.clone().detach()
-                loss_central_discriminator.requires_grad = True
-                loss_central_discriminator.backward(retain_graph=True)
-                optimizer_central_discriminator.step()
-
-                # Training the generators
-                outputs_G = {}
-                loss_G_local = {}
-                loss_G = {}
-                for i in range(n_channels):
-                    optimizers_G[i].zero_grad()
-                    outputs_G[i] = discriminators[i](generated_samples[i])
-                    loss_G_local[i] = loss_function(outputs_G[i], real_samples_labels)
-                    all_samples_central_new = {}
-                    output_central_discriminator_new = {}
-                    loss_central_discriminator_new = {}
-
-                    generated_samples_new = {}
-                    for j in range(n_channels):
-                        generated_samples_new[j] = generators[j](shared_noise)
-
-                        if i == j:
-                            generated_samples_new[j] = generated_samples_new[j].float()
-                        else:
-                            generated_samples_new[j] = generated_samples_new[j].detach().float()
-                    temp_generated = generated_samples_new[0]
-                    for j in range(1, n_channels):
-                        temp_generated = torch.hstack((temp_generated, generated_samples_new[j]))
-                    all_generated_samples = temp_generated
-                    all_samples_central_new[i] = torch.cat((all_generated_samples, group_real))
-                    output_central_discriminator_new[i] = central_discriminator(all_samples_central_new[i].float())
-                    loss_central_discriminator_new[i] = loss_function(
-                        output_central_discriminator_new[i], all_samples_labels_central)
-
-                    loss_G[i] = loss_G_local[i] - gamma[epoch] * loss_central_discriminator_new[i]
-                    loss_G[i].backward(retain_graph=True)
-                    optimizers_G[i].step()
+               #  signal_group = {}
+               #  for i in range(n_channels):
+               #      signal_group[i] = batch_x[:, :, i]
+               #  # Generate noise
+               #  #noise = torch.randn(batch_x.shape[0], n_channels, noise_len)
+               #  shared_noise = torch.randn((batch_x.shape[0], noise_len)).float().to("cuda:0")
+               #
+               #  # Generate fake data
+               # # generated_data = generator(noise).to("cuda:0")
+               #  generated_samples = {}
+               #  for i in range(n_channels):
+               #      generated_samples[i] = generators[i](shared_noise).float()
+               #
+               #  generated_samples_labels = torch.zeros((batch_x.shape[0], n_samples)).to("cuda:0").float()
+               #  real_samples_labels = torch.ones((batch_x.shape[0], n_samples)).to("cuda:0").float()
+               #  all_samples_labels = torch.cat(
+               #      (real_samples_labels, generated_samples_labels)
+               #  )
+               #
+               #  # Data for training the discriminators
+               #  all_samples_group = {}
+               #  for i in range(n_channels):
+               #      all_samples_group[i] = torch.cat(
+               #          (signal_group[i], generated_samples[i])
+               #      )
+               #
+               #  # Training the discriminators
+               #  outputs_D = {}
+               #  loss_D = {}
+               #  for i in range(n_channels):
+               #      optimizers_D[i].zero_grad()
+               #      outputs_D[i] = discriminators[i](all_samples_group[i].float())
+               #      loss_D[i] = loss_function(outputs_D[i], all_samples_labels)
+               #      loss_D[i].backward(retain_graph=True)
+               #      optimizers_D[i].step()
+               #
+               #  #CD
+               #  temp_generated = generated_samples[0]
+               #  for i in range(1, n_channels):
+               #      temp_generated = torch.hstack((temp_generated, generated_samples[i]))
+               #  group_generated = temp_generated
+               #
+               #  temp_real = signal_group[0]
+               #  for i in range(1, n_channels):
+               #      temp_real = torch.hstack((temp_real, signal_group[i]))
+               #  group_real = temp_real
+               #
+               #  all_samples_central = torch.cat((group_generated, group_real))
+               #  all_samples_labels_central = torch.cat(
+               #      (torch.zeros((batch_x.shape[0], n_samples * n_channels)).to("cuda:0").float(), torch.ones((batch_x.shape[0], n_samples * n_channels)).to("cuda:0").float())
+               #  )
+               #
+               #  # Training the central discriminator
+               #  optimizer_central_discriminator.zero_grad()
+               #  output_central_discriminator = central_discriminator(all_samples_central.float())
+               #  loss_central_discriminator = loss_function(
+               #      output_central_discriminator, all_samples_labels_central)
+               #  loss_central_discriminator = loss_central_discriminator.clone().detach()
+               #  loss_central_discriminator.requires_grad = True
+               #  loss_central_discriminator.backward(retain_graph=True)
+               #  optimizer_central_discriminator.step()
+               #
+               #  # Training the generators
+               #  outputs_G = {}
+               #  loss_G_local = {}
+               #  loss_G = {}
+               #  for i in range(n_channels):
+               #      optimizers_G[i].zero_grad()
+               #      outputs_G[i] = discriminators[i](generated_samples[i])
+               #      loss_G_local[i] = loss_function(outputs_G[i], real_samples_labels)
+               #      all_samples_central_new = {}
+               #      output_central_discriminator_new = {}
+               #      loss_central_discriminator_new = {}
+               #
+               #      generated_samples_new = {}
+               #      for j in range(n_channels):
+               #          generated_samples_new[j] = generators[j](shared_noise)
+               #
+               #          if i == j:
+               #              generated_samples_new[j] = generated_samples_new[j].float()
+               #          else:
+               #              generated_samples_new[j] = generated_samples_new[j].detach().float()
+               #      temp_generated = generated_samples_new[0]
+               #      for j in range(1, n_channels):
+               #          temp_generated = torch.hstack((temp_generated, generated_samples_new[j]))
+               #      all_generated_samples = temp_generated
+               #      all_samples_central_new[i] = torch.cat((all_generated_samples, group_real))
+               #      output_central_discriminator_new[i] = central_discriminator(all_samples_central_new[i].float())
+               #      loss_central_discriminator_new[i] = loss_function(
+               #          output_central_discriminator_new[i], all_samples_labels_central)
+               #
+               #      loss_G[i] = loss_G_local[i] - gamma[epoch] * loss_central_discriminator_new[i]
+               #      loss_G[i].backward(retain_graph=True)
+               #      optimizers_G[i].step()
 
                 # encoder - decoder
                 #检查是否要使用混合精度训练,在不影响模型精度的情况下减少训练时间和内存消耗
@@ -358,7 +358,10 @@ class Exp_Main(Exp_Basic):
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:] #(256,336,7)  (32,336,7)
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device) #(256,336,7)  (32,336,7)
-                    loss = criterion(outputs, batch_y) * 0.5 + loss_central_discriminator * 0.5
+                    # loss_original = criterion(outputs, batch_y).clone().detach()
+                    # loss_original.requires_grad = True
+                    # loss = loss_original * 0.65 + loss_central_discriminator * 0.35
+                    loss = criterion(outputs, batch_y)
                     # if outpus_psi.numel() != Null:
                     #     outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
                     #     loss_aug = criterion(outputs_aug, batch_y)
@@ -378,8 +381,9 @@ class Exp_Main(Exp_Basic):
                     scaler.step(model_optim)
                     scaler.update()
                 else:
+                 #   loss.backward(retain_graph=True)
                     loss.backward()
-                    #优化器会根据当前设置的学习率和梯度计算出的参数更新值来更新模型的参数
+                #优化器会根据当前设置的学习率和梯度计算出的参数更新值来更新模型的参数
                     model_optim.step()
                     self.equalizer_optimizer.step()
                 if self.args.lradj == 'TST':
