@@ -106,6 +106,13 @@ class PANetFPN(nn.Module):
         self.last_linear = nn.Linear(sum(down_out),self.out_len)
         # self.linear_out = nn.Linear(self.out_len * 2, self.out_len)
 
+    def extract_layers(self):
+        layers = []
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.AvgPool1d, block_model)):
+                layers.append(module)
+        return layers
+
     def forward(self, x):  # x:(256,7,432)
 
         e_left = []
@@ -149,7 +156,7 @@ class PANetFPN(nn.Module):
 class Configs:
     def __init__(self):
         self.seq_len = 432 #输入序列长度
-        self.individual = False # 是否独立处理每个频道
+        self.individual = True # 是否独立处理每个频道
         self.enc_in = 7 # 输入通道数
         self.cut_freq = 50  # 截断频率，即考虑的最大频率
         self.stage_num = 3

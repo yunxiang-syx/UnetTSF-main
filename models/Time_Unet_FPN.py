@@ -65,7 +65,7 @@ class Model(nn.Module):
         # res_fpn = self.fpn_pyramid(res_init)
         # trend_fpn = self.fpn_pyramid(trend_init)
         # e_last = res_fpn + trend_fpn
-     #   x1 = x.permute(0, 2, 1)  # x1 (256,7,432)
+        x = x.permute(0, 2, 1)  # x1 (256,7,432)
    #     output = self.fpn_pyramid(x)  # (256,336,7)
         output = self.fpn_pyramid(x)
    #      x = x.permute(0, 2, 1)  # x1 (256,7,432)
