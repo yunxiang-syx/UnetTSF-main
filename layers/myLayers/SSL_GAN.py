@@ -281,12 +281,18 @@ class Gan_model(nn.Module):
             output_central_discriminator_new[i] = self.central_discriminator(all_samples_central_new[i].float())
             loss_central_discriminator_new[i] = self.loss_function(
                 output_central_discriminator_new[i], all_samples_labels_central)
+            loss_central_discriminator_new[i] = loss_central_discriminator_new[i].clone().detach()
+            loss_central_discriminator_new[i].requires_grad = True
 
             loss_G[i] = loss_G_local[i] - self.gamma[epoch] * loss_central_discriminator_new[i]
             loss_G[i].backward(retain_graph=True)
             self.optimizers_G[i].step()
 
-        return loss_central_discriminator
+        for i in range(self.n_channels-1):
+            average = loss_G[i] + loss_G[i+1]
+        loss_genAverage = average / self.n_channels
+
+        return loss_genAverage
 
 class Configs:
     def __init__(self):

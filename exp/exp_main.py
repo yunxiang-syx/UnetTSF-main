@@ -162,50 +162,50 @@ class Exp_Main(Exp_Basic):
                                             epochs=self.args.train_epochs,
                                             max_lr=self.args.learning_rate)
         # Define Losses
-        loss_D = nn.BCELoss()  # Binary Cross Entropy Loss for Generator
-        loss_CD = nn.BCELoss()  # Binary Cross Entropy Loss for Central Discriminator
-
-        # Initialize Generator, Discriminator, and Central Discriminator
-        noise_len = 432  # Length of noise vector
-        n_samples = self.args.pred_len  # Number of output samples
-        alpha = 0.1  # Leaky ReLU slope
-        n_channels = self.args.enc_in  # Number of channels
-        gamma_value = 5.0
-        generator = Generator(noise_len, n_samples, alpha)
-        discriminator = Discriminator(n_samples, alpha)
-        loss_function = nn.BCELoss()
-
-        discriminators = {}
-        for i in range(n_channels):
-            discriminators[i] = Discriminator(n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
-        for i in range(n_channels):
-            discriminators[i] = discriminators[i].to("cuda:0")
-            discriminators[i].to("cuda:0")
-            ##
-
-        generators = {}
-        for i in range(n_channels):
-            generators[i] = Generator(noise_len=noise_len, n_samples=n_samples, alpha=alpha).apply(
-                self.initialize_weights)
-        for i in range(n_channels):
-            generators[i].to("cuda:0")
-
-        gamma = [gamma_value] * self.args.train_epochs
-
-        # Define Optimizers
-        optimizers_D = {}
-        for i in range(n_channels):
-            optimizers_D[i] = torch.optim.Adam(discriminators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
-        optimizers_G = {}
-        for i in range(n_channels):
-            optimizers_G[i] = torch.optim.Adam(generators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
-
-        # central discriminator
-        central_discriminator = Discriminator(n_samples=n_channels * n_samples, alpha=alpha)
-        central_discriminator = central_discriminator.apply(self.initialize_weights)
-        central_discriminator.to("cuda:0")
-        optimizer_central_discriminator = torch.optim.Adam(central_discriminator.parameters(),
-                                                           lr=0.0001, betas=[0.5, 0.9])
+        # loss_D = nn.BCELoss()  # Binary Cross Entropy Loss for Generator
+        # loss_CD = nn.BCELoss()  # Binary Cross Entropy Loss for Central Discriminator
+        #
+        # # Initialize Generator, Discriminator, and Central Discriminator
+        # noise_len = 432  # Length of noise vector
+        # n_samples = self.args.pred_len  # Number of output samples
+        # alpha = 0.1  # Leaky ReLU slope
+        # n_channels = self.args.enc_in  # Number of channels
+        # gamma_value = 5.0
+        # generator = Generator(noise_len, n_samples, alpha)
+        # discriminator = Discriminator(n_samples, alpha)
+        # loss_function = nn.BCELoss()
+        #
+        # discriminators = {}
+        # for i in range(n_channels):
+        #     discriminators[i] = Discriminator(n_samples=n_samples, alpha=alpha).apply(self.initialize_weights)
+        # for i in range(n_channels):
+        #     discriminators[i] = discriminators[i].to("cuda:0")
+        #     discriminators[i].to("cuda:0")
+        #     ##
+        #
+        # generators = {}
+        # for i in range(n_channels):
+        #     generators[i] = Generator(noise_len=noise_len, n_samples=n_samples, alpha=alpha).apply(
+        #         self.initialize_weights)
+        # for i in range(n_channels):
+        #     generators[i].to("cuda:0")
+        #
+        # gamma = [gamma_value] * self.args.train_epochs
+        #
+        # # Define Optimizers
+        # optimizers_D = {}
+        # for i in range(n_channels):
+        #     optimizers_D[i] = torch.optim.Adam(discriminators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
+        # optimizers_G = {}
+        # for i in range(n_channels):
+        #     optimizers_G[i] = torch.optim.Adam(generators[i].parameters(), lr=0.001, betas=[0.5, 0.9])
+        #
+        # # central discriminator
+        # central_discriminator = Discriminator(n_samples=n_channels * n_samples, alpha=alpha)
+        # central_discriminator = central_discriminator.apply(self.initialize_weights)
+        # central_discriminator.to("cuda:0")
+        # optimizer_central_discriminator = torch.optim.Adam(central_discriminator.parameters(),
+        #                                                    lr=0.0001, betas=[0.5, 0.9])
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
@@ -367,12 +367,13 @@ class Exp_Main(Exp_Basic):
                     # f_dim = -1 if self.args.features == 'MS' else 0
                     # outputs = outputs[:, -self.args.pred_len:, f_dim:]  # (256,336,7)  (32,336,7)
                     # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # (256,336,7)  (32,336,7)
+                    # 对抗性样本
 
-                    loss_central_discriminator = self.ganModel(batch_x, epoch)
+                    loss_gan = self.ganModel(batch_x, epoch)
 
                     loss_original = criterion(outputs, batch_y).clone().detach()
                     loss_original.requires_grad = True
-                    loss = loss_original + loss_central_discriminator
+                    loss = loss_original + loss_gan
                     #             loss = criterion(outputs, batch_y)
                     # if outpus_psi.numel() != Null:
                     #     outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
@@ -394,7 +395,7 @@ class Exp_Main(Exp_Basic):
                     scaler.update()
                 else:
                     loss.backward(retain_graph=True)
-                    #    loss.backward()
+                #    loss.backward()
                     # 优化器会根据当前设置的学习率和梯度计算出的参数更新值来更新模型的参数
                     model_optim.step()
                     self.equalizer_optimizer.step()
@@ -438,7 +439,10 @@ class Exp_Main(Exp_Basic):
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-
+        if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+                for j in range(batch_x.shape[0]):
+                    self.ganModel(batch_x, i)
         self.model.eval()
         test_flag = True
         tets_num = 0

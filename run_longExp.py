@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
     # random seed
-    parser.add_argument('--random_seed', type=int, default=2021, help='random seed')
+    parser.add_argument('--random_seed', type=int, default=42, help='random seed')
 
     # basic config
     parser.add_argument('--task_name', type=str, required=False, default='long_term_forecast',
