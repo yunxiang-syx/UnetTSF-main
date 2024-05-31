@@ -73,6 +73,7 @@ class Model(nn.Module):
    #      output = output.permute(0, 2, 1)
      #   output = self.fpn_pyramid(res) + self.fpn_pyramid(trend)
         e_last = self.revin_layer(output, 'denorm')  # (256,432,7)
+       # e_last = self.revin_layer(e_last, 'denorm')
         return e_last
 
 

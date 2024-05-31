@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
     # random seed
-    parser.add_argument('--random_seed', type=int, default=42, help='random seed')
+    parser.add_argument('--random_seed', type=int, default=2021, help='random seed')
 
     # basic config
     parser.add_argument('--task_name', type=str, required=False, default='long_term_forecast',
@@ -113,6 +113,17 @@ if __name__ == '__main__':
     #引入BiFPN
     parser.add_argument('--bifpn_features', type=int, default=128, help='bifpn_conv_outchannels')
     parser.add_argument('--bifpn_numlayers', type=int, default=3, help='bifpn_block_layers')
+
+    #TimeMixer
+    parser.add_argument('--down_sampling_layers', type=int, default=0, help='num of down sampling layers')
+    parser.add_argument('--down_sampling_window', type=int, default=1, help='down sampling window size')
+    parser.add_argument('--down_sampling_method', type=str, default='avg',
+                        help='down sampling method, only support avg, max, conv')
+    parser.add_argument('--channel_independence', type=int, default=1,
+                        help='0: channel dependence 1: channel independence for FreTS model')
+    parser.add_argument('--decomp_method', type=str, default='moving_avg',
+                        help='method of series decompsition, only support moving_avg or dft_decomp')
+    parser.add_argument('--use_norm', type=int, default=1, help='whether to use normalize; True 1 False 0')
 
     # GPU
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')

@@ -5,7 +5,7 @@ from exp.exp_basic import Exp_Basic
 from layers.myLayers.Gan import Generator, Discriminator
 from layers.tAPE import tAPE
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST, Time_Unet, \
-    Time_Unet_FITS, TimesNet, ModernTCN_Unet, Time_Unet_ModernBlock, Time_Unet_FPN, Time_Unet_PITS
+    Time_Unet_FITS, TimesNet, ModernTCN_Unet, Time_Unet_ModernBlock, Time_Unet_FPN, Time_Unet_PITS, Time_Unet_TimeMixer
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 from layers.myLayers.SSL_GAN import Gan_model
@@ -56,7 +56,8 @@ class Exp_Main(Exp_Basic):
             'Time_Unet_ModernBlock': Time_Unet_ModernBlock,
             'TimesNet': TimesNet,
             'Time_Unet_FPN': Time_Unet_FPN,
-            'Time_Unet_PITS': Time_Unet_PITS
+            'Time_Unet_PITS': Time_Unet_PITS,
+            'Time_Unet_TimeMixer': Time_Unet_TimeMixer
         }
         # 初始化模型
         if self.args.model == 'ModernTCN_Unet':
@@ -64,7 +65,7 @@ class Exp_Main(Exp_Basic):
         else:
             model = model_dict[self.args.model].Model(self.args).float()
             #引入自监督模型
-            self.ganModel = Gan_model(self.args, model.fpn_pyramid)
+           # self.ganModel = Gan_model(self.args, model.fpn_pyramid)
 
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -369,16 +370,17 @@ class Exp_Main(Exp_Basic):
                     # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # (256,336,7)  (32,336,7)
                     # 对抗性样本
 
-                    loss_gan = self.ganModel(batch_x, epoch)
+                   # loss_gan = self.ganModel(batch_x, epoch)
 
-                    loss_original = criterion(outputs, batch_y).clone().detach()
-                    loss_original.requires_grad = True
-                    loss = loss_original + loss_gan
+                  #  loss_original = criterion(outputs, batch_y).clone().detach()
+                   # loss_original.requires_grad = True
+                  #  loss = loss_original + loss_gan
                     #             loss = criterion(outputs, batch_y)
                     # if outpus_psi.numel() != Null:
                     #     outputs_aug = outputs_aug[:, -self.args.pred_len:, f_dim:]
                     #     loss_aug = criterion(outputs_aug, batch_y)
                     #     loss = loss * 0.5 + loss_aug * 0.5
+                    loss = criterion(outputs, batch_y)
                     train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
@@ -394,8 +396,8 @@ class Exp_Main(Exp_Basic):
                     scaler.step(model_optim)
                     scaler.update()
                 else:
-                    loss.backward(retain_graph=True)
-                #    loss.backward()
+                #    loss.backward(retain_graph=True)
+                    loss.backward()
                     # 优化器会根据当前设置的学习率和梯度计算出的参数更新值来更新模型的参数
                     model_optim.step()
                     self.equalizer_optimizer.step()
@@ -439,10 +441,10 @@ class Exp_Main(Exp_Basic):
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-        if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
-                for j in range(batch_x.shape[0]):
-                    self.ganModel(batch_x, i)
+        # if 'Linear' in self.args.model or 'TST' in self.args.model or 'Unet' in self.args.model:
+        #     for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+        #         for j in range(batch_x.shape[0]):
+        #             self.ganModel(batch_x, i)
         self.model.eval()
         test_flag = True
         tets_num = 0
